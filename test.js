@@ -18,6 +18,7 @@ function generateSecretKey() {
 }
 
 let browserArray = [];
+let userPhone = ""
 
 app.post('/hometax', async (req, res) => {
   const userData = req.body;
@@ -118,7 +119,8 @@ app.post('/hometax', async (req, res) => {
     await frameInner2.focus(
         "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li.none-telecom > div.ul-td > input"
     );
-    await homtaxPage.keyboard.type(userData.phone);
+    userPhone = userData.phone
+    await homtaxPage.keyboard.type(userPhone);
     await homtaxPage.waitForTimeout(100);
 
     // 약관 동의
@@ -169,33 +171,24 @@ app.post("/auth_check", async (req, res) => {
     const pages = await browser.pages();
     const homtaxPage = pages[1];
   
-    const frameInner2 = homtaxPage
-    .frames()
-    .find((frame) => frame.name() === "simple_iframeView");
-
-    await frameInner2.click(
-      "#oacxEmbededContents > div.standby > div > button.basic.sky.w70"
-    );
-    await homtaxPage.waitForTimeout(500);
-  
     try {
+      const frameInner2 = homtaxPage
+      .frames()
+      .find((frame) => frame.name() === "simple_iframeView");
+      await frameInner2.waitForTimeout(500);
+      // console.log("프레임 찾음")
+
       await frameInner2.$eval(
-        "#oacxEmbededContents > div.alertArea > div > div.btnArea > button",
+        "#oacxEmbededContents > div.standby > div > button.basic.sky.w70",
         (elem) => elem.click()
       );
-      res.send({ msg: "인증을 완료해주세요" });
+      // console.log("클릭완료")
+      
+      await homtaxPage.waitForTimeout(500);
+      res.send({ msg: "인증 완료" });
     } catch (error) {
-      res.send({ msg: "auth OK" });
+      res.send({ msg: "인증이 완료되지 않았습니다." });
     }
-    // if ((await homtaxPage.$("#simple_iframeView")) !== null) {
-    //   console.log("found");
-    //   await frameInner2.$eval(
-    //     "#oacxEmbededContents > div.alertArea > div > div.btnArea > button",
-    //     (elem) => elem.click()
-    //   );
-    // } else {
-    //   console.log("not found");
-    // }
 });
 
 app.post("/homtax_registration", async (req, res) => {
@@ -220,34 +213,37 @@ app.post("/homtax_registration", async (req, res) => {
       .frames()
       .find((frame) => frame.name() === "txppIframe");
   
-    // //인적사항 입력
-    // //휴대전화번호
-    // // await frame.evaluate(() => {
-    // //   document.querySelector("#mpno1 > option:nth-child(2)").selected = true; //010
-    // // });
-    // await frame.click("#mpno1");
-    // await homtaxPage.waitForTimeout(300);
-    // await homtaxPage.keyboard.press("ArrowDown");
-    // await homtaxPage.keyboard.press("Enter");
-  
-    // await frame.$eval(
-    //   "#mpno2",
-    //   (el, userData) => (el.value = userData.phoneFirst),
-    //   userData
-    // );
-    // await frame.$eval(
-    //   "#mpno3",
-    //   (el, userData) => (el.value = userData.phoneSecond),
-    //   userData
-    // );
-    // await homtaxPage.waitForTimeout(300);
-    // homtaxPage.on("dialog", async (dialog) => {
-    //   await dialog.accept();
+    //인적사항 입력
+    //휴대전화번호
+    // await frame.evaluate(() => {
+    //   document.querySelector("#mpno1 > option:nth-child(2)").selected = true; //010
     // });
-    // await frame.$eval(
-    //   "#mpInfrRcvnAgrYn > div.w2radio_item.w2radio_item_0 > label",
-    //   (el) => el.click()
-    // );
+    const phoneFirst = userPhone.substring(0, 4);
+    const phoneSecond = userPhone.substring(4);
+
+    await frame.click("#mpno1");
+    await homtaxPage.waitForTimeout(300);
+    await homtaxPage.keyboard.press("ArrowDown");
+    await homtaxPage.keyboard.press("Enter");
+  
+    await frame.$eval(
+      "#mpno2",
+      (el, phoneFirst) => (el.value = phoneFirst),
+      phoneFirst
+    );
+    await frame.$eval(
+      "#mpno3",
+      (el, phoneSecond) => (el.value = phoneSecond),
+      phoneSecond
+    );
+    await homtaxPage.waitForTimeout(300);
+    homtaxPage.on("dialog", async (dialog) => {
+      await dialog.accept();
+    });
+    await frame.$eval(
+      "#mpInfrRcvnAgrYn > div.w2radio_item.w2radio_item_0 > label",
+      (el) => el.click()
+    );
   
     // // 1. 가게, 사무실 등 사업장을 빌리셨습니까?
     // // 2. 공동사업을 하십니까?
