@@ -245,14 +245,14 @@ app.post("/homtax_registration", async (req, res) => {
       (el) => el.click()
     );
   
-    // // 1. 가게, 사무실 등 사업장을 빌리셨습니까?
-    // // 2. 공동사업을 하십니까?
-    // // 3. 서류송달장소는 사업장 주소 외 별도 주소지를 희망하십니까?
+    // 1. 가게, 사무실 등 사업장을 빌리셨습니까?
+    // 2. 공동사업을 하십니까?
+    // 3. 서류송달장소는 사업장 주소 외 별도 주소지를 희망하십니까?
   
-    // await frame.focus("#tnmNm");
-    // await homtaxPage.keyboard.type(userData.companyName);
-    // await frame.focus("#ofbDt_input");
-    // await homtaxPage.keyboard.type(userData.openingDate);
+    await frame.focus("#tnmNm");
+    await homtaxPage.keyboard.type(userData.companyName);
+    await frame.focus("#ofbDt_input");
+    await homtaxPage.keyboard.type(userData.openingDate);
   
     // // await frame.evaluate(() => {
     // //   document.querySelector("#tnmNm").click();
