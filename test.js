@@ -34,6 +34,7 @@ app.post('/hometax', async (req, res) => {
   const homtaxPage = await browser.newPage();
   browserArray.push({ key: key, browser: browser });
 
+
     // 국세청 홈택스 페이지 이동
     await homtaxPage.goto(
         "https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index.xml",
@@ -199,6 +200,8 @@ app.post("/homtax_registration", async (req, res) => {
     const pages = await browser.pages();
     const homtaxPage = pages[1];
 
+
+
     await homtaxPage.waitForTimeout(3000);
   
     //사업자 등록 간편 신청-통신판매업 이동
@@ -213,71 +216,174 @@ app.post("/homtax_registration", async (req, res) => {
       .frames()
       .find((frame) => frame.name() === "txppIframe");
   
-    //인적사항 입력
-    //휴대전화번호
-    // await frame.evaluate(() => {
-    //   document.querySelector("#mpno1 > option:nth-child(2)").selected = true; //010
-    // });
+    //////////////////////////////////인적사항 입력///////////////////////////////////
+    
     const phoneFirst = userPhone.substring(0, 4);
     const phoneSecond = userPhone.substring(4);
 
+    //휴대전화 앞자리 010 선택
     await frame.click("#mpno1");
     await homtaxPage.waitForTimeout(300);
     await homtaxPage.keyboard.press("ArrowDown");
     await homtaxPage.keyboard.press("Enter");
-  
+
+    //휴대전화 중간 4자리
     await frame.$eval(
       "#mpno2",
       (el, phoneFirst) => (el.value = phoneFirst),
       phoneFirst
     );
+
+    //휴대전화 마지막 4자리
     await frame.$eval(
       "#mpno3",
       (el, phoneSecond) => (el.value = phoneSecond),
       phoneSecond
     );
+
+    // 국세정보문자수신동의
     await homtaxPage.waitForTimeout(300);
+
+    let dialogHandled = false;
     homtaxPage.on("dialog", async (dialog) => {
-      await dialog.accept();
+      if (!dialogHandled) {
+        await dialog.accept();
+        dialogHandled = true;
+      }
     });
     await frame.$eval(
       "#mpInfrRcvnAgrYn > div.w2radio_item.w2radio_item_0 > label",
       (el) => el.click()
     );
-  
-    // 1. 가게, 사무실 등 사업장을 빌리셨습니까?
-    // 2. 공동사업을 하십니까?
-    // 3. 서류송달장소는 사업장 주소 외 별도 주소지를 희망하십니까?
-  
+
     await frame.focus("#tnmNm");
     await homtaxPage.keyboard.type(userData.companyName);
     await frame.focus("#ofbDt_input");
     await homtaxPage.keyboard.type(userData.openingDate);
+
+
+    // 주소 문자열을 공백을 기준으로 분리
+    const addressParts = userData.roadAddress.split(" ");
+    // 첫 번째 부분은 주소 헤더 (조방로26번길)
+    const addressHeader = addressParts.shift();
+    // 다음 부분은 주소 번호 (7)
+    const addressBody = addressParts.shift();
+    // 남은 부분은 상세 주소 (101동 1401호)
+    const addressTail = addressParts.join(" ");
   
-    // // await frame.evaluate(() => {
-    // //   document.querySelector("#tnmNm").click();
-    // // });
-    // // await frame.$eval("#tnmNm", (el) => (el.value = "상호명입력스"));
-    // // await frame.evaluate(() => {
-    // //   document.querySelector("#ofbDt_input").click();
-    // // });
-    // // await frame.$eval("#ofbDt_input", (el) => (el.value = "20210915"));
+    try {
+      // await homtaxPage.waitForSelector("#lcrsSameYn");
+      
+      // 분기 1. 가게, 사무실 등 사업장을 빌리셨습니까?(default : 아니오)
+      if (userData.isBuildingOwner == true) {
+        console.log("빌딩소유 확인")
+          // 분기 1-1 주소지 동일여부(default : 여)
+            if(userData.useSameAddress == true) {
+              console.log("주소지 동일 확인")
+              await frame.evaluate(() => {
+                document.querySelector(
+                  "#lcrsSameYn > div.w2radio_item.w2radio_item_0 > label"
+                  ).click();
+              });
+              //주소이전시 사업장 소재지 자동이전 (default : 동의하지 않음)
+              if(userData.autoChangeAddress == false) {
+
+                await frame.evaluate(() => {
+                  document.querySelector(
+                    "#pfbTlcAltAgrYn > div.w2radio_item.w2radio_item_1 > label"
+                  ).click();
+                });
+                //주소이전시 사업장 소재지 자동이전 (동의)
+              } else if(userData.autoChangeAddress == true) {
+                await frame.evaluate(() => {
+                  document.querySelector(
+                    "#pfbTlcAltAgrYn > div.w2radio_item.w2radio_item_0 > label"
+                  ).click();
+                });
+              }
+
+            } else if(userData.useSameAddress == false) {
+              // 분기 1-1 주소지 동일여부(부 체크시 주소검색입력)
+              await frame.$eval("#triggerAdrPopup", (elem) => elem.click());
+              await homtaxPage.waitForTimeout(1000);
+              // 주소 입력 팝업
+              try {
+                const frameInner = homtaxPage
+                .frames()
+                .find((frame) => frame.name() === "UTECMAAA02_iframe");
+                
+
+
+                await frameInner.focus("#inputSchRoadNm1");
+                await homtaxPage.keyboard.type(addressHeader);
+                await homtaxPage.waitForTimeout(100);
+                await frameInner.$eval("#trigger15", (elem) => elem.click());
+                await frameInner.waitForSelector("#G_adrCtlAdmDVOList1___radio_radio0_0");
+                await frameInner.$eval("#G_adrCtlAdmDVOList1___radio_radio0_0", (elem) => elem.click());
+                console.log(addressBody);
+                console.log(addressTail);
+                // `.asd > nth-child(${index})`
+                // #adrCtlAdmDVOList1_cell_0_3
+                // #G_adrCtlAdmDVOList1___radio_radio0_0
+                // #adrCtlAdmDVOList1_cell_1_3
+                // #G_adrCtlAdmDVOList1___radio_radio0_1
+                // #adrCtlAdmDVOList1_cell_4_3
+                // #G_adrCtlAdmDVOList1___radio_radio0_4
+                //#adrCtlAdmDVOList1_cell_0_3 > span
+                //`#adrCtlAdmDVOList1_cell_${inputValue - 1}_3`
+
+  const selector = '#adrCtlAdmDVOList1_body_tbody > tr.grid_body_row';
+  const counts = await frameInner.$eval((selector) => {
+    return document.querySelectorAll(selector).length;
+  }, selector);
+  console.log(counts);
+
+  // for (let index = 0; index < counts; index++) {
+  //   let certification = await frameInner2.$eval(
+  //     "#oacxEmbededContents > div:nth-child(2) > div > div.selectLayout > div > div > ul > li:nth-child(" +
+  //       (index + 1) +
+  //       ") > label > span > p",
+
+  //     (element) => {
+  //       return element.innerText;
+  //     }
+  //   );
+  //   // console.log(certification);
+  //   if (certification == userData.method) {
+  //     await frameInner2.click(
+  //       "#oacxEmbededContents > div:nth-child(2) > div > div.selectLayout > div > div > ul > li:nth-child(" +
+  //         (index + 1) +
+  //         ") > label > a"
+  //     );
+  //     break;
+  //   }
+  // }
+                
+              } catch (error) {
+                console.error("주소입력창을 찾을 수 없습니다.", error);
+              }
+
+            }
+      } else {
+
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    }
+
+
+    
+
+    // 2. 공동사업을 하십니까?
+    // 3. 서류송달장소는 사업장 주소 외 별도 주소지를 희망하십니까?
   
-    // //주소지 동일 여부 (여)
-    // await frame.evaluate(() => {
-    //   document
-    //     .querySelector("#lcrsSameYn > div.w2radio_item.w2radio_item_0 > label")
-    //     .click();
-    // });
+
   
-    // //주소이전시 사업장 소재지 자동이전 (동의하지 않음)
-    // await frame.evaluate(() => {
-    //   document
-    //     .querySelector(
-    //       "#pfbTlcAltAgrYn > div.w2radio_item.w2radio_item_1 > label"
-    //     )
-    //     .click();
-    // });
+  
+
+  
+
+    
   
     // //업종 선택
     // await frame.evaluate(() => {
