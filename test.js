@@ -139,39 +139,42 @@ app.post('/hometax', async (req, res) => {
     res.send("no problem");
 });
 
-// 생년월일 입력 테스트
-app.post('/birth', async (req, res) => {
-  const userData = req.body;
-  var foundBrowser = browserArray.find((e) => e.key === userData.key);
-  const browser = foundBrowser.browser;
-  const pages = await browser.pages();
-  const homtaxPage = pages[1];
-
-  const frameInner2 = homtaxPage
-  .frames()
-  .find((frame) => frame.name() === "simple_iframeView");
+// //인증여부 확인
+// app.post("/auth_check", async (req, res) => {
+//     const userData = req.body;
+//     var foundBrowser = browserArray.find((e) => e.key === userData.key);
+//     const browser = foundBrowser.browser;
+//     const pages = await browser.pages();
+//     const homtaxPage = pages[1];
   
-  await frameInner2.focus(
-      "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li:nth-child(2) > div.ul-td > input"
-      );
-      await homtaxPage.keyboard.type(userData.birth);
-      await homtaxPage.waitForTimeout(100);
-  // res.send('Success');
-    //인증요청
-    await frameInner2.$eval("#oacx-request-btn-pc", (elem) => elem.click());
-    // await frameInner2.click("#oacx-request-btn-pc");
-    //   homtaxPage.close();
-    console.log("인증요청 완료");
-});
+//     try {
+//       const frameInner2 = homtaxPage
+//       .frames()
+//       .find((frame) => frame.name() === "simple_iframeView");
+//       await frameInner2.waitForTimeout(500);
+//       // console.log("프레임 찾음")
 
-//인증여부 확인
-app.post("/auth_check", async (req, res) => {
+//       await frameInner2.$eval(
+//         "#oacxEmbededContents > div.standby > div > button.basic.sky.w70",
+//         (elem) => elem.click()
+//       );
+//       // console.log("클릭완료")
+      
+//       await homtaxPage.waitForTimeout(500);
+//       res.send({ msg: "인증 완료" });
+//     } catch (error) {
+//       res.send({ msg: "인증이 완료되지 않았습니다." });
+//     }
+// });
+
+app.post("/homtax_registration", async (req, res) => {
+
     const userData = req.body;
     var foundBrowser = browserArray.find((e) => e.key === userData.key);
     const browser = foundBrowser.browser;
     const pages = await browser.pages();
     const homtaxPage = pages[1];
-  
+
     try {
       const frameInner2 = homtaxPage
       .frames()
@@ -186,19 +189,9 @@ app.post("/auth_check", async (req, res) => {
       // console.log("클릭완료")
       
       await homtaxPage.waitForTimeout(500);
-      res.send({ msg: "인증 완료" });
     } catch (error) {
-      res.send({ msg: "인증이 완료되지 않았습니다." });
+      console.error("인증이 완료되지 않았습니다.", error);
     }
-});
-
-app.post("/homtax_registration", async (req, res) => {
-
-    const userData = req.body;
-    var foundBrowser = browserArray.find((e) => e.key === userData.key);
-    const browser = foundBrowser.browser;
-    const pages = await browser.pages();
-    const homtaxPage = pages[1];
 
 
 
@@ -256,6 +249,8 @@ app.post("/homtax_registration", async (req, res) => {
       (el) => el.click()
     );
 
+    //////////////////////////////////사업장정보 입력///////////////////////////////////
+    
     await frame.focus("#tnmNm");
     await homtaxPage.keyboard.type(userData.companyName);
     await frame.focus("#ofbDt_input");
@@ -276,10 +271,8 @@ app.post("/homtax_registration", async (req, res) => {
       
       // 분기 1. 가게, 사무실 등 사업장을 빌리셨습니까?(default : 아니오)
       if (userData.isBuildingOwner == true) {
-        console.log("빌딩소유 확인")
           // 분기 1-1 주소지 동일여부(default : 여)
             if(userData.useSameAddress == true) {
-              console.log("주소지 동일 확인")
               await frame.evaluate(() => {
                 document.querySelector(
                   "#lcrsSameYn > div.w2radio_item.w2radio_item_0 > label"
@@ -320,47 +313,35 @@ app.post("/homtax_registration", async (req, res) => {
                 await frameInner.$eval("#trigger15", (elem) => elem.click());
                 await frameInner.waitForSelector("#G_adrCtlAdmDVOList1___radio_radio0_0");
                 await frameInner.$eval("#G_adrCtlAdmDVOList1___radio_radio0_0", (elem) => elem.click());
-                console.log(addressBody);
-                console.log(addressTail);
-                // `.asd > nth-child(${index})`
-                // #adrCtlAdmDVOList1_cell_0_3
-                // #G_adrCtlAdmDVOList1___radio_radio0_0
-                // #adrCtlAdmDVOList1_cell_1_3
-                // #G_adrCtlAdmDVOList1___radio_radio0_1
-                // #adrCtlAdmDVOList1_cell_4_3
-                // #G_adrCtlAdmDVOList1___radio_radio0_4
-                //#adrCtlAdmDVOList1_cell_0_3 > span
-                //`#adrCtlAdmDVOList1_cell_${inputValue - 1}_3`
+                await homtaxPage.waitForTimeout(500);
+              
+                // 선택자로 해당 요소를 찾고 요소의 내용을 가져옴
+                const txtTotalSelector = '#txtTotal1';
+                const counts = await frameInner.$eval(txtTotalSelector, (element) => {
+                  return parseInt(element.textContent);
+                });
 
-  const selector = '#adrCtlAdmDVOList1_body_tbody > tr.grid_body_row';
-  const counts = await frameInner.$eval((selector) => {
-    return document.querySelectorAll(selector).length;
-  }, selector);
-  console.log(counts);
+                console.log('Counts:', counts);
 
-  // for (let index = 0; index < counts; index++) {
-  //   let certification = await frameInner2.$eval(
-  //     "#oacxEmbededContents > div:nth-child(2) > div > div.selectLayout > div > div > ul > li:nth-child(" +
-  //       (index + 1) +
-  //       ") > label > span > p",
-
-  //     (element) => {
-  //       return element.innerText;
-  //     }
-  //   );
-  //   // console.log(certification);
-  //   if (certification == userData.method) {
-  //     await frameInner2.click(
-  //       "#oacxEmbededContents > div:nth-child(2) > div > div.selectLayout > div > div > ul > li:nth-child(" +
-  //         (index + 1) +
-  //         ") > label > a"
-  //     );
-  //     break;
-  //   }
-  // }
-                
+                for (let index = 0; index < counts; index++) {
+                  let hometaxAddressBody = await frameInner.$eval("#adrCtlAdmDVOList1_cell_" + (index) + "_3 > span",
+                    (element) => {
+                      return element.innerText;
+                    }
+                  );
+                  console.log(hometaxAddressBody);
+                  if (hometaxAddressBody == addressBody) {
+                    await frameInner.click("#G_adrCtlAdmDVOList1___radio_radio0_" + (index));
+                    await homtaxPage.waitForTimeout(100);
+                    await frameInner.click("#trigger13");
+                    break;
+                  }
+                }
+                await frame.focus("#inputEtcDadr");
+                await homtaxPage.waitForTimeout(500);
+                await homtaxPage.keyboard.type(addressTail);
               } catch (error) {
-                console.error("주소입력창을 찾을 수 없습니다.", error);
+                console.error("주소를 다시 입력해주세요.", error);
               }
 
             }
