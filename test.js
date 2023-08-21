@@ -264,7 +264,7 @@ app.post("/homtax_registration", async (req, res) => {
     // 다음 부분은 주소 번호 (7)
     const addressBody = addressParts.shift();
     // 남은 부분은 상세 주소 (101동 1401호)
-    const addressTail = addressParts.join(" ");
+    const addressTail = addressParts.join("");
   
     try {
       // await homtaxPage.waitForSelector("#lcrsSameYn");
@@ -338,77 +338,126 @@ app.post("/homtax_registration", async (req, res) => {
                   }
                 }
                 await frame.focus("#inputEtcDadr");
-                await homtaxPage.waitForTimeout(500);
+                await homtaxPage.waitForTimeout(1000);
+                console.log(addressTail);
                 await homtaxPage.keyboard.type(addressTail);
+                await homtaxPage.waitForTimeout(1000);
               } catch (error) {
                 console.error("주소를 다시 입력해주세요.", error);
               }
 
             }
-      } else {
-
+      } else if(userData.isBuildingOwner == false) {
+        console.log("임대차 정보를 입력하세요")
+        //임대 사업자 사업자등록번호
+        //사무실 주소
+        //임대차 계약서(PDF, JPG, JPEG, PNG, GIF, BMP)
+        //임대한 건물 면적 (㎡)
+        //계약일자(20220101)
+        //임대 시작일(20220101)
+        //임대 종료일(20220101)
       }
     } catch (error) {
       console.error("Error:", error);
-    }
-
-
-    
+    }   
 
     // 2. 공동사업을 하십니까?
     // 3. 서류송달장소는 사업장 주소 외 별도 주소지를 희망하십니까?
   
-
   
-  
-
-  
-
+    //업종 선택
+    // 1. 전자상거래 소매업
+    // 2. 전자상거래 소매 중개업
+    // 3. SNS 마켓 -> 전자상거래 소매업, 전자상거래 소매 중개업 값 선택
+    try {
+      await frame.evaluate(() => {
+        document.querySelector("#triggerTfbBtnAdd").click();
+      });
     
-  
-    // //업종 선택
-    // await frame.evaluate(() => {
-    //   document.querySelector("#triggerTfbBtnAdd").click();
-    // });
-  
-    // await homtaxPage.waitForTimeout(1000);
-  
-    // //UTEABAAA85_iframe
-    // const category_frame = homtaxPage
-    //   .frames()
-    //   .find((frame) => frame.name() === "UTEABAAA85_iframe");
-    // await category_frame.evaluate(() => {
-    //   document
-    //     .querySelector("#baseXpsrGridListDes_cell_0_9 > span > button")
-    //     .click();
-    // });
-  
-    // await homtaxPage.waitForTimeout(1000);
-  
-    // await category_frame.evaluate(() => {
-    //   document.querySelector("#triggerTfbAplnAdd").click();
-    // });
-  
+      await homtaxPage.waitForTimeout(1000);
+    
+      //UTEABAAA85_iframe
+      const category_frame = homtaxPage
+        .frames()
+        .find((frame) => frame.name() === "UTEABAAA85_iframe");
+
+      if (userData.businessCategory === "전자상거래 소매업") {
+        await category_frame.evaluate(() => {
+          document
+            .querySelector("#baseXpsrGridListDes_cell_0_9 > span > button")
+            .click();
+        });
+      } else if (userData.businessCategory === "전자상거래 소매 중개업") {
+        await category_frame.evaluate(() => {
+          document
+            .querySelector("#baseXpsrGridListDes_cell_2_9 > span > button")
+            .click();
+        });
+      } else if (userData.businessCategory === "SNS 마켓") {
+        await category_frame.evaluate(() => {
+          document
+            .querySelector("#baseXpsrGridListDes_cell_3_9 > span > button")
+            .click();
+        });
+        // const snsCategory_frame = homtaxPage
+        // .frames()
+        // .find((frame) => frame.name() === "UTERNAAZ76_iframe");
+        console.log("SNS 마켓에서 넘어감");
+        await homtaxPage.waitForTimeout(1000);
+        const snsCategory_frame = frame
+          .childFrames()
+          .find((childFrame) => childFrame.name() === "UTERNAAZ76_iframe");
+        if (userData.snsMarketCategory === "전자상거래 소매 중개업") {
+          await snsCategory_frame.click("#krStndIndsClCdDVOListDes_cell_0_11 > button");
+          
+        } else if (userData.snsMarketCategory === "전자상거래 소매업") {
+          await snsCategory_frame.click("#krStndIndsClCdDVOListDes_cell_1_11 > button");
+        } else {
+          throw new Error("지원하지 않는 SNS업종입니다.");
+        } 
+      } else {
+        throw new Error("지원하지 않는 업종입니다."); // 에러를 throw하여 catch 블록으로 연결
+      }
+    
+      await homtaxPage.waitForTimeout(1000);
+    
+      await category_frame.evaluate(() => {
+        document.querySelector("#triggerTfbAplnAdd").click();
+      });
+      
+    } catch (error) {
+      console.error("Error:", error);
+    }
+
     // //사업자 유형 선택
-    // if (userData.taxpayerType === "simplified") {
-    //   await frame.evaluate(() => {
-    //     document
-    //       .querySelector("#vatTxtpeCd > div.w2radio_item.w2radio_item_1 > label")
-    //       .click();
-    //   });
-    // } else if (userData.taxpayerType === "general") {
-    //   await frame.evaluate(() => {
-    //     document
-    //       .querySelector("#vatTxtpeCd > div.w2radio_item.w2radio_item_0 > label")
-    //       .click();
-    //   });
-    // } else if (userData.taxpayerType === "dutyfree") {
-    //   await frame.evaluate(() => {
-    //     document
-    //       .querySelector("#vatTxtpeCd > div.w2radio_item.w2radio_item_2 > label")
-    //       .click();
-    //   });
-    // }
+    // //간이 과세자
+    // //일반사업자
+    // //면세사업자
+    try {
+      if (userData.taxpayerType === "간이") {
+        await frame.evaluate(() => {
+          document
+            .querySelector("#vatTxtpeCd > div.w2radio_item.w2radio_item_1 > label")
+            .click();
+        });
+      } else if (userData.taxpayerType === "일반") {
+        await frame.evaluate(() => {
+          document
+            .querySelector("#vatTxtpeCd > div.w2radio_item.w2radio_item_0 > label")
+            .click();
+        });
+      } else if (userData.taxpayerType === "면세") {
+        await frame.evaluate(() => {
+          document
+            .querySelector("#vatTxtpeCd > div.w2radio_item.w2radio_item_2 > label")
+            .click();
+        });
+      } else {
+        throw new Error("사업자 유형을 확인해 주세요."); // 에러를 throw하여 catch 블록으로 연결
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    }
   
     // //저장후다음
     // await frame.evaluate(() => {
