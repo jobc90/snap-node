@@ -18,7 +18,6 @@ function generateSecretKey() {
 }
 
 let browserArray = [];
-let userPhone = ""
 
 app.post('/hometax', async (req, res) => {
   const userData = req.body;
@@ -60,6 +59,7 @@ app.post('/hometax', async (req, res) => {
     await frame.click("#anchor14");
 
     await frame.waitForSelector("#anchor23");
+    await homtaxPage.waitForTimeout(300);
     await frame.click("#anchor23");
     // 간편인증
     await frame.waitForSelector("#UTECMADA02_iframe");
@@ -120,8 +120,7 @@ app.post('/hometax', async (req, res) => {
     await frameInner2.focus(
         "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li.none-telecom > div.ul-td > input"
     );
-    userPhone = userData.phone
-    await homtaxPage.keyboard.type(userPhone);
+    await homtaxPage.keyboard.type(userData.phone);
     await homtaxPage.waitForTimeout(100);
 
     // 약관 동의
@@ -211,8 +210,8 @@ app.post("/homtax_registration", async (req, res) => {
   
     //////////////////////////////////인적사항 입력///////////////////////////////////
     
-    const phoneFirst = userPhone.substring(0, 4);
-    const phoneSecond = userPhone.substring(4);
+    const phoneFirst = userData.userPhone.substring(0, 4);
+    const phoneSecond = userData.userPhone.substring(4);
 
     //휴대전화 앞자리 010 선택
     await frame.click("#mpno1");
@@ -242,6 +241,8 @@ app.post("/homtax_registration", async (req, res) => {
       if (!dialogHandled) {
         await dialog.accept();
         dialogHandled = true;
+      } else {
+        
       }
     });
     await frame.$eval(
@@ -337,6 +338,7 @@ app.post("/homtax_registration", async (req, res) => {
                     break;
                   }
                 }
+                await frame.waitForSelector("#inputEtcDadr");
                 await frame.focus("#inputEtcDadr");
                 await homtaxPage.waitForTimeout(1000);
                 console.log(addressTail);
@@ -347,8 +349,121 @@ app.post("/homtax_registration", async (req, res) => {
               }
 
             }
+            // 빌딩 임대시
       } else if(userData.isBuildingOwner == false) {
-        console.log("임대차 정보를 입력하세요")
+        await frame.waitForSelector("#pfbPsenClCd_input_0");
+        await frame.evaluate(() => {
+          document.querySelector("#pfbPsenClCd_input_0").click();
+        });
+        
+        await frame.waitForSelector("#pfbMhSfl1");
+        await frame.focus("#pfbMhSfl1");
+        await homtaxPage.keyboard.type(userData.lentBuildingArea);
+        await frame.$eval("#triggerLsrnDelete", (elem) => elem.click());
+        await homtaxPage.waitForTimeout(1000);
+        
+        try {
+          const lentBuildingInfo_frame = homtaxPage
+          .frames()
+          .find((frame) => frame.name() === "UTEABAAA66_iframe");
+          console.log(lentBuildingInfo_frame);
+          
+
+
+
+  
+          const lentBuildingBusinessNumberFirst = userData.lentBuildingBusinessNumber.substring(0, 3);
+          const lentBuildingBusinessNumberMiddle = userData.lentBuildingBusinessNumber.substring(3, 5);
+          const lentBuildingBusinessNumberLast = userData.lentBuildingBusinessNumber.substring(5);
+  
+          await lentBuildingInfo_frame.focus("#lsorBsno1");
+          await homtaxPage.keyboard.type(lentBuildingBusinessNumberFirst);
+          await lentBuildingInfo_frame.focus("#lsorBsno2");
+          await homtaxPage.keyboard.type(lentBuildingBusinessNumberMiddle);
+          await lentBuildingInfo_frame.focus("#lsorBsno3");
+          await homtaxPage.keyboard.type(lentBuildingBusinessNumberLast);
+
+          await lentBuildingInfo_frame.evaluate(() => {
+            document.querySelector("#btnLsorBsno").click();
+          });
+
+          homtaxPage.on("dialog", async (dialog) => {
+              await dialog.accept();
+          });
+  
+          await lentBuildingInfo_frame.focus("#ctrDt_input");
+          await homtaxPage.keyboard.type(userData.lentBuildingContractDate);
+          await lentBuildingInfo_frame.focus("#ctrTermStrtDt_input");
+          await homtaxPage.keyboard.type(userData.lentBuildingStartDate);
+          await lentBuildingInfo_frame.focus("#ctrTermEndDt_input");
+          await homtaxPage.keyboard.type(userData.lentBuildingFinishDate);
+          await lentBuildingInfo_frame.focus("#lsorPfbSfl");
+          await homtaxPage.keyboard.type(userData.lentBuildingArea);
+//////////////////////////////////임대차 부동산 주소입력////////////////////////////////////////////////
+          await lentBuildingInfo_frame.$eval("#triggerAdrPopup3", (elem) => elem.click());
+          await homtaxPage.waitForTimeout(1000);
+          
+          try {
+            // 주소 문자열을 공백을 기준으로 분리
+            const addressParts = userData.roadAddress.split(" ");
+            // 첫 번째 부분은 주소 헤더 (조방로26번길)
+            const addressHeader = addressParts.shift();
+            // 다음 부분은 주소 번호 (7)
+            const addressBody = addressParts.shift();
+            // 남은 부분은 상세 주소 (101동 1401호)
+            const addressTail = addressParts.join("");
+            
+            const frameInner = homtaxPage
+            .frames()
+            .find((frame) => frame.name() === "UTECMAAA02_iframe");
+
+            await frameInner.focus("#inputSchRoadNm1");
+            await homtaxPage.keyboard.type(addressHeader);
+            await homtaxPage.waitForTimeout(100);
+            await frameInner.$eval("#trigger15", (elem) => elem.click());
+            await frameInner.waitForSelector("#G_adrCtlAdmDVOList1___radio_radio0_0");
+            await frameInner.$eval("#G_adrCtlAdmDVOList1___radio_radio0_0", (elem) => elem.click());
+            await homtaxPage.waitForTimeout(500);
+          
+            // 선택자로 해당 요소를 찾고 요소의 내용을 가져옴
+            const txtTotalSelector = '#txtTotal1';
+            const counts = await frameInner.$eval(txtTotalSelector, (element) => {
+              return parseInt(element.textContent);
+            });
+
+            console.log('Counts:', counts);
+
+            for (let index = 0; index < counts; index++) {
+              let hometaxAddressBody = await frameInner.$eval("#adrCtlAdmDVOList1_cell_" + (index) + "_3 > span",
+                (element) => {
+                  return element.innerText;
+                }
+              );
+              console.log(hometaxAddressBody);
+              if (hometaxAddressBody == addressBody) {
+                await frameInner.click("#G_adrCtlAdmDVOList1___radio_radio0_" + (index));
+                await homtaxPage.waitForTimeout(100);
+                await frameInner.click("#trigger13");
+                break;
+              }
+            }
+            await lentBuildingInfo_frame.waitForSelector("#lsorEtcDadr");
+            await lentBuildingInfo_frame.focus("#lsorEtcDadr");
+            await homtaxPage.waitForTimeout(1000);
+            console.log(addressTail);
+            await homtaxPage.keyboard.type(addressTail);
+            await homtaxPage.waitForTimeout(1000);
+          } catch (error) {
+            console.error("주소를 다시 입력해주세요.", error);
+          }
+////////////////////////////////////////////////////////////////////////////////////////////
+          await lentBuildingInfo_frame.evaluate(() => {
+            document.querySelector("#triggerRgtLsrn").click();
+          });
+
+        } catch (error) {
+          console.log("임대 건물 정보 에러");
+        }
         //임대 사업자 사업자등록번호
         //사무실 주소
         //임대차 계약서(PDF, JPG, JPEG, PNG, GIF, BMP)
@@ -361,103 +476,117 @@ app.post("/homtax_registration", async (req, res) => {
       console.error("Error:", error);
     }   
 
-    // 2. 공동사업을 하십니까?
-    // 3. 서류송달장소는 사업장 주소 외 별도 주소지를 희망하십니까?
+    // // 2. 공동사업을 하십니까?
+    // // 3. 서류송달장소는 사업장 주소 외 별도 주소지를 희망하십니까?
   
   
-    //업종 선택
-    // 1. 전자상거래 소매업
-    // 2. 전자상거래 소매 중개업
-    // 3. SNS 마켓 -> 전자상거래 소매업, 전자상거래 소매 중개업 값 선택
-    try {
-      await frame.evaluate(() => {
-        document.querySelector("#triggerTfbBtnAdd").click();
-      });
+    // //업종 선택
+    // // 1. 전자상거래 소매업
+    // // 2. 전자상거래 소매 중개업
+    // // 3. SNS 마켓 -> 전자상거래 소매업, 전자상거래 소매 중개업 값 선택
+    // await frame.waitForSelector("#triggerTfbBtnAdd");
+    // try {
+    //   await frame.evaluate(() => {
+    //     document.querySelector("#triggerTfbBtnAdd").click();
+    //   });
     
-      await homtaxPage.waitForTimeout(1000);
+    //   await homtaxPage.waitForTimeout(1000);
     
-      //UTEABAAA85_iframe
-      const category_frame = homtaxPage
-        .frames()
-        .find((frame) => frame.name() === "UTEABAAA85_iframe");
+    //   //UTEABAAA85_iframe
+    //   const category_frame = homtaxPage
+    //     .frames()
+    //     .find((frame) => frame.name() === "UTEABAAA85_iframe");
 
-      if (userData.businessCategory === "전자상거래 소매업") {
-        await category_frame.evaluate(() => {
-          document
-            .querySelector("#baseXpsrGridListDes_cell_0_9 > span > button")
-            .click();
-        });
-      } else if (userData.businessCategory === "전자상거래 소매 중개업") {
-        await category_frame.evaluate(() => {
-          document
-            .querySelector("#baseXpsrGridListDes_cell_2_9 > span > button")
-            .click();
-        });
-      } else if (userData.businessCategory === "SNS 마켓") {
-        await category_frame.evaluate(() => {
-          document
-            .querySelector("#baseXpsrGridListDes_cell_3_9 > span > button")
-            .click();
-        });
-        // const snsCategory_frame = homtaxPage
-        // .frames()
-        // .find((frame) => frame.name() === "UTERNAAZ76_iframe");
-        console.log("SNS 마켓에서 넘어감");
-        await homtaxPage.waitForTimeout(1000);
-        const snsCategory_frame = frame
-          .childFrames()
-          .find((childFrame) => childFrame.name() === "UTERNAAZ76_iframe");
-        if (userData.snsMarketCategory === "전자상거래 소매 중개업") {
-          await snsCategory_frame.click("#krStndIndsClCdDVOListDes_cell_0_11 > button");
+    //   if (userData.businessCategory === "전자상거래 소매업") {
+    //     await category_frame.evaluate(() => {
+    //       document
+    //         .querySelector("#baseXpsrGridListDes_cell_0_9 > span > button")
+    //         .click();
+    //     });
+    //   } else if (userData.businessCategory === "전자상거래 소매 중개업") {
+    //     await category_frame.evaluate(() => {
+    //       document
+    //         .querySelector("#baseXpsrGridListDes_cell_2_9 > span > button")
+    //         .click();
+    //     });
+    //   } else if (userData.businessCategory === "SNS 마켓") {
+    //     await category_frame.evaluate(() => {
+    //       document
+    //         .querySelector("#baseXpsrGridListDes_cell_3_9 > span > button")
+    //         .click();
+    //     });
+    //     await homtaxPage.waitForTimeout(1000);
+    //     //하위 프레임은 childFrames()로 선택한다
+    //     const snsCategory_frame = frame
+    //       .childFrames()
+    //       .find((childFrame) => childFrame.name() === "UTERNAAZ76_iframe");
+    //     await snsCategory_frame.waitForSelector("#krStndIndsClCdDVOListDes_cell_0_11 > button");
+    //     if (userData.snsMarketCategory === "전자상거래 소매 중개업") {
+    //       await snsCategory_frame.click("#krStndIndsClCdDVOListDes_cell_0_11 > button");
           
-        } else if (userData.snsMarketCategory === "전자상거래 소매업") {
-          await snsCategory_frame.click("#krStndIndsClCdDVOListDes_cell_1_11 > button");
-        } else {
-          throw new Error("지원하지 않는 SNS업종입니다.");
-        } 
-      } else {
-        throw new Error("지원하지 않는 업종입니다."); // 에러를 throw하여 catch 블록으로 연결
-      }
+    //     } else if (userData.snsMarketCategory === "전자상거래 소매업") {
+    //       await snsCategory_frame.click("#krStndIndsClCdDVOListDes_cell_1_11 > button");
+    //     } else {
+    //       throw new Error("지원하지 않는 SNS업종입니다.");
+    //     } 
+    //   } else {
+    //     throw new Error("지원하지 않는 업종입니다."); // 에러를 throw하여 catch 블록으로 연결
+    //   }
     
-      await homtaxPage.waitForTimeout(1000);
-    
-      await category_frame.evaluate(() => {
-        document.querySelector("#triggerTfbAplnAdd").click();
-      });
       
-    } catch (error) {
-      console.error("Error:", error);
-    }
+    //   await category_frame.waitForSelector("#triggerTfbAplnAdd");
+    //   await category_frame.evaluate(() => {
+    //     document.querySelector("#triggerTfbAplnAdd").click();
+    //   });
+    //   await homtaxPage.waitForTimeout(1000);
+      
+    // } catch (error) {
+    //   console.error("Error:", error);
+    // }
 
     // //사업자 유형 선택
     // //간이 과세자
     // //일반사업자
     // //면세사업자
-    try {
-      if (userData.taxpayerType === "간이") {
-        await frame.evaluate(() => {
-          document
-            .querySelector("#vatTxtpeCd > div.w2radio_item.w2radio_item_1 > label")
-            .click();
-        });
-      } else if (userData.taxpayerType === "일반") {
-        await frame.evaluate(() => {
-          document
-            .querySelector("#vatTxtpeCd > div.w2radio_item.w2radio_item_0 > label")
-            .click();
-        });
-      } else if (userData.taxpayerType === "면세") {
-        await frame.evaluate(() => {
-          document
-            .querySelector("#vatTxtpeCd > div.w2radio_item.w2radio_item_2 > label")
-            .click();
-        });
-      } else {
-        throw new Error("사업자 유형을 확인해 주세요."); // 에러를 throw하여 catch 블록으로 연결
-      }
-    } catch (error) {
-      console.error("Error:", error);
-    }
+    // await frame.waitForSelector("#vatTxtpeCd > div.w2radio_item.w2radio_item_0 > label");
+    // try {
+    //   if (userData.taxpayerType === "간이") {
+    //     await frame.evaluate(() => {
+    //       document
+    //         .querySelector("#vatTxtpeCd > div.w2radio_item.w2radio_item_1 > label")
+    //         .click();
+    //     });
+
+    //   } else if (userData.taxpayerType === "일반") {
+    //     await frame.evaluate(() => {
+    //       document
+    //         .querySelector("#vatTxtpeCd > div.w2radio_item.w2radio_item_0 > label")
+    //         .click();
+    //     });
+    //     await homtaxPage.waitForTimeout(1000);
+    //     homtaxPage.on("dialog", async (dialog) => {
+    //       await dialog.accept();
+    //     });
+    //     frame.waitForSelector("#sptxnAbdnRtnYn_input_0");
+    //     if (userData.simpleTaxReq === true) {
+    //       await frame.evaluate(() => {
+    //         document
+    //           .querySelector("#sptxnAbdnRtnYn_input_0")
+    //           .click();
+    //       });
+    //     }
+    //   } else if (userData.taxpayerType === "면세") {
+    //     await frame.evaluate(() => {
+    //       document
+    //         .querySelector("#vatTxtpeCd > div.w2radio_item.w2radio_item_2 > label")
+    //         .click();
+    //     });
+    //   } else {
+    //     throw new Error("사업자 유형을 확인해 주세요."); // 에러를 throw하여 catch 블록으로 연결
+    //   }
+    // } catch (error) {
+    //   console.error("Error:", error);
+    // }
   
     // //저장후다음
     // await frame.evaluate(() => {
