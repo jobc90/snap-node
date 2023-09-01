@@ -12,13 +12,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
-// crypto를 사용하여 secretkey생성하는 함수 만들기
+// crypto를 사용하여 secretkey생성하는 함수 만들기 (유저 판단용)
 function generateSecretKey() {
   return crypto.randomBytes(32).toString('hex');
 }
 
 let browserArray = [];
 
+// 인증요청 API
 app.post('/hometax', async (req, res) => {
   const userData = req.body;
   console.log(userData);
@@ -34,143 +35,134 @@ app.post('/hometax', async (req, res) => {
   browserArray.push({ key: key, browser: browser });
 
 
-    // 국세청 홈택스 페이지 이동
-    await homtaxPage.goto(
-        "https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index.xml",
-        {
-            waitUntil: "networkidle2",
-        }
-    );
-
-    await homtaxPage.$eval("#query", (el, key) => (el.value = key), key);
-
-    // 로그인 클릭
-    await homtaxPage.click("#group88615548");
-
-    // 로그인 방식 간편인증 선택
-    await homtaxPage.waitForTimeout(3000);
-
-    const frame = homtaxPage
-        .frames()
-        .find((frame) => frame.name() === "txppIframe");
+    // 홈택스 이동후 간편인증 클릭
     try {
-      await frame.waitForSelector("#anchor14");
-      await frame.click("#anchor14");
+      await homtaxPage.goto(
+          "https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index.xml",
+          {
+              waitUntil: "networkidle2",
+          }
+      );
+
+      await homtaxPage.$eval("#query", (el, key) => (el.value = key), key);
+      await homtaxPage.click("#textbox915");
+      await homtaxPage.waitForNetworkIdle();
+
+      await homtaxPage.waitForSelector("#txppIframe");
+      const frame = await homtaxPage
+      .frames()
+      .find((frame) => frame.name() === "txppIframe");
+
+      try {
+        async function clickAnchors(frame, anchor14Selector, anchor23Selector, counts) {
+          await frame.waitForSelector(anchor14Selector);
+          await frame.click(anchor14Selector);
+        
+          const anchor14clicked = await frame.evaluate((selector) => !!document.querySelector(selector), 'a#anchor14[title="탭 선택됨"]');
+        
+          if (anchor14clicked) {
+            await frame.waitForSelector(anchor23Selector);
+            await frame.click(anchor23Selector);
+          } else {
+            console.log("시도 횟수:", counts);
+            await clickAnchors(frame, anchor14Selector, anchor23Selector, counts+1);
+          }
+        }
+
+        await clickAnchors(frame, "#anchor14", "#anchor23", 1);
+
+      } catch (error) {
+        console.error("간편인증 진행 중 에러발생함.", error);
+        res.sendStatus(500);
+        return;
+      }
+
+    // 간편인증 진행
+      await frame.waitForSelector("#UTECMADA02_iframe");
+      const frameInner = homtaxPage
+      .frames()
+      .find((frame) => frame.name() === "UTECMADA02_iframe");
+      
+      const frameInner2 = frameInner
+      .childFrames()
+      .find((childFrame) => childFrame.name() === "simple_iframeView");
   
-      await frame.waitForSelector("#anchor23");
-      await homtaxPage.waitForTimeout(300);
-      await frame.click("#anchor23");
-    } catch (error) {
-      console.log("간편인증 페이지 넘어가는 도중 에러")
-    }
-    // 간편인증
-    await frame.waitForSelector("#UTECMADA02_iframe");
-    await homtaxPage.waitForTimeout(3000);
-    
-    const frameInner = homtaxPage
-    .frames()
-    .find((frame) => frame.name() === "UTECMADA02_iframe");
-    
-    await frameInner.waitForSelector("#simple_iframeView");
-    const frameInner2 = homtaxPage
-    .frames()
-    .find((frame) => frame.name() === "simple_iframeView");
-
-    await frameInner2.waitForSelector(
-      "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li:nth-child(1) > div.ul-td > input[type=text]"
-    );
-
-    //간편인증 인증서 선택
-    let counts = await frameInner2.$eval(
-        "#oacxEmbededContents > div:nth-child(2) > div > div.selectLayout > div > div > ul",
-        (element) => {
-        return element.childElementCount;
-        }
-    );
-    //   console.log(counts); //11개(로그인 방식)
-
-    for (let index = 0; index < counts; index++) {
-        let certification = await frameInner2.$eval(
-        "#oacxEmbededContents > div:nth-child(2) > div > div.selectLayout > div > div > ul > li:nth-child(" +
-            (index + 1) +
-            ") > label > span > p",
-        (element) => {
-            return element.innerText;
-        }
-        );
-        // console.log(certification);
-        // console.log(userData.provider)
-        if (certification == userData.provider) {
-        await frameInner2.click(
-            "#oacxEmbededContents > div:nth-child(2) > div > div.selectLayout > div > div > ul > li:nth-child(" +
-            (index + 1) +
-            ") > label > a"
-        );
-        break;
-        }
-    }
-
-    //본인인증 정보 입력
-    await frameInner2.focus(
+      await frameInner2.waitForSelector(
         "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li:nth-child(1) > div.ul-td > input[type=text]"
-    );
-    await homtaxPage.keyboard.type(userData.name);
-    await homtaxPage.waitForTimeout(100);
+      );
+  
+      //간편인증 인증서 선택
+      let counts = await frameInner2.$eval(
+          "#oacxEmbededContents > div:nth-child(2) > div > div.selectLayout > div > div > ul",
+          (element) => {
+          return element.childElementCount;
+          }
+      );
+  
+      for (let index = 0; index < counts; index++) {
+          let certification = await frameInner2.$eval(
+          "#oacxEmbededContents > div:nth-child(2) > div > div.selectLayout > div > div > ul > li:nth-child(" +
+              (index + 1) +
+              ") > label > span > p",
+          (element) => {
+              return element.innerText;
+          }
+          );
 
-    await frameInner2.focus(
+          // 유저가 선택한 간편인증서 선택
+          if (certification == userData.provider) {
+          await frameInner2.click(
+              "#oacxEmbededContents > div:nth-child(2) > div > div.selectLayout > div > div > ul > li:nth-child(" +
+              (index + 1) +
+              ") > label > a"
+          );
+          break;
+          }
+      }
+  
+      //유저의 본인인증 정보 입력
+      await frameInner2.waitForSelector(
+        "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li:nth-child(1) > div.ul-td > input[type=text]"
+      );
+      await frameInner2.focus(
+        "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li:nth-child(1) > div.ul-td > input[type=text]"
+      );
+      await homtaxPage.keyboard.type(userData.name);
+  
+      await frameInner2.waitForSelector(
         "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li:nth-child(2) > div.ul-td > input"
-    );
-    await homtaxPage.keyboard.type(userData.birth);
-    await homtaxPage.waitForTimeout(100);
-
-    await frameInner2.focus(
+      );
+      await frameInner2.focus(
+        "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li:nth-child(2) > div.ul-td > input"
+      );
+      await homtaxPage.keyboard.type(userData.birth);
+  
+      await frameInner2.waitForSelector(
         "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li.none-telecom > div.ul-td > input"
-    );
-    await homtaxPage.keyboard.type(userData.phone);
-    await homtaxPage.waitForTimeout(100);
-
-    // 약관 동의
-    await frameInner2.$eval(
+      );
+      await frameInner2.focus(
+        "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li.none-telecom > div.ul-td > input"
+      );
+      await homtaxPage.keyboard.type(userData.phone);
+  
+      // 약관 동의
+      await frameInner2.waitForSelector(
+        "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > dl.agree > dt > label",
+      );
+      await frameInner2.$eval(
         "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > dl.agree > dt > label",
         (elem) => elem.click()
-    );
-
-    //인증요청
-    await frameInner2.$eval("#oacx-request-btn-pc", (elem) => elem.click());
-    // await frameInner2.click("#oacx-request-btn-pc");
-    //   homtaxPage.close();
-    console.log("인증요청 완료");
-
-    res.send("no problem");
-});
-
-// //인증여부 확인
-// app.post("/auth_check", async (req, res) => {
-//     const userData = req.body;
-//     var foundBrowser = browserArray.find((e) => e.key === userData.key);
-//     const browser = foundBrowser.browser;
-//     const pages = await browser.pages();
-//     const homtaxPage = pages[1];
+      );
   
-//     try {
-//       const frameInner2 = homtaxPage
-//       .frames()
-//       .find((frame) => frame.name() === "simple_iframeView");
-//       await frameInner2.waitForTimeout(500);
-//       // console.log("프레임 찾음")
-
-//       await frameInner2.$eval(
-//         "#oacxEmbededContents > div.standby > div > button.basic.sky.w70",
-//         (elem) => elem.click()
-//       );
-//       // console.log("클릭완료")
-      
-//       await homtaxPage.waitForTimeout(500);
-//       res.send({ msg: "인증 완료" });
-//     } catch (error) {
-//       res.send({ msg: "인증이 완료되지 않았습니다." });
-//     }
-// });
+      //인증요청
+      await frameInner2.$eval("#oacx-request-btn-pc", (elem) => elem.click());
+    } catch (error) {
+      console.error("인증요청에서 에러발생함.", error);
+      res.send(500);
+      return;
+    }
+    res.send("인증요청 완료");
+});
 
 app.post("/homtax_registration", async (req, res) => {
 
@@ -184,28 +176,21 @@ app.post("/homtax_registration", async (req, res) => {
       const frameInner2 = homtaxPage
       .frames()
       .find((frame) => frame.name() === "simple_iframeView");
-      await frameInner2.waitForTimeout(500);
-      // console.log("프레임 찾음")
 
       await frameInner2.$eval(
         "#oacxEmbededContents > div.standby > div > button.basic.sky.w70",
         (elem) => elem.click()
       );
-      // console.log("클릭완료")
-      
-      await homtaxPage.waitForTimeout(500);
     } catch (error) {
       console.error("인증이 완료되지 않았습니다.", error);
     }
 
-
-
     await homtaxPage.waitForTimeout(3000);
   
     //사업자 등록 간편 신청-통신판매업 이동
-    await homtaxPage.hover("#group1304");
-    // await homtaxPage.click("#menuAtag_0306100000"); //클릭 에러
-    await homtaxPage.$eval("#menuAtag_0306100000", (elem) => elem.click());
+    await homtaxPage.hover("#hdTextbox546");
+    await homtaxPage.click("#menuAtag_4306010000");
+    await homtaxPage.$eval("#menuAtag_4306010300", (elem) => elem.click());
   
     await homtaxPage.waitForTimeout(8000);
   
@@ -242,34 +227,14 @@ app.post("/homtax_registration", async (req, res) => {
     // 국세정보문자수신동의
     await homtaxPage.waitForTimeout(300);
     try {
-      let dialogHandled = false; // 다이얼로그 처리 상태를 나타내는 변수
-
       homtaxPage.on("dialog", async (dialog) => {
-        if (!dialogHandled) {
           await dialog.accept();
-          dialogHandled = true;
-
-          // 다음 다이얼로그에 대비하여 변수 초기화
-          dialogHandled = false;
-        }
       });
-      // homtaxPage.on("dialog", async (dialog) => {
-      //   await dialog.accept();
-      // });
-  
-      // let dialogHandled = false;
-      // homtaxPage.on("dialog", async (dialog) => {
-      //   if (!dialogHandled) {
-      //     await dialog.accept();
-      //     dialogHandled = true;
-      //   } else {
-          
-      //   }
-      // });
       
     } catch (error) {
       console.log("dialog 확인 요망.")
     }
+    
     await frame.$eval(
       "#mpInfrRcvnAgrYn > div.w2radio_item.w2radio_item_0 > label",
       (el) => el.click()
@@ -406,18 +371,6 @@ app.post("/homtax_registration", async (req, res) => {
           await lentBuildingInfo_frame.evaluate(() => {
             document.querySelector("#btnLsorBsno").click();
           });
-          
-          let dialogHandled = false; // 다이얼로그 처리 상태를 나타내는 변수
-    
-          homtaxPage.on("dialog", async (dialog) => {
-            if (!dialogHandled) {
-              await dialog.accept();
-              dialogHandled = true;
-    
-              // 다음 다이얼로그에 대비하여 변수 초기화
-              dialogHandled = false;
-            }
-          });
   
           await lentBuildingInfo_frame.focus("#ctrDt_input");
           await homtaxPage.keyboard.type(userData.lentBuildingContractDate);
@@ -435,11 +388,8 @@ app.post("/homtax_registration", async (req, res) => {
           try {
             // 주소 문자열을 공백을 기준으로 분리
             const addressParts = userData.roadAddress.split(" ");
-            // 첫 번째 부분은 주소 헤더 (조방로26번길)
             const addressHeader = addressParts.shift();
-            // 다음 부분은 주소 번호 (7)
             const addressBody = addressParts.shift();
-            // 남은 부분은 상세 주소 (101동 1401호)
             const addressTail = addressParts.join("");
 
             const frameInner = homtaxPage
@@ -587,17 +537,10 @@ app.post("/homtax_registration", async (req, res) => {
             .click();
         });
         await homtaxPage.waitForTimeout(1000);
-        let dialogHandled = false; // 다이얼로그 처리 상태를 나타내는 변수
   
-        homtaxPage.on("dialog", async (dialog) => {
-          if (!dialogHandled) {
-            await dialog.accept();
-            dialogHandled = true;
-  
-            // 다음 다이얼로그에 대비하여 변수 초기화
-            dialogHandled = false;
-          }
-        });
+        // homtaxPage.on("dialog", async (dialog) => {
+        //     await dialog.accept();
+        // });
         frame.waitForSelector("#sptxnAbdnRtnYn_input_0");
         if (userData.simpleTaxReq === true) {
           await frame.evaluate(() => {
@@ -619,10 +562,10 @@ app.post("/homtax_registration", async (req, res) => {
       console.error("Error:", error);
     }
   
-    // //저장후다음
-    // await frame.evaluate(() => {
-    //   document.querySelector("#triggerApln").click();
-    // });
+    //저장후다음
+    await frame.evaluate(() => {
+      document.querySelector("#triggerApln").click();
+    });
   
     // //제출서류선택
     // await homtaxPage.waitForTimeout(4000);
