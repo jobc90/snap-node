@@ -79,17 +79,32 @@ app.post('/hometax', async (req, res) => {
 
     // 간편인증 진행
       await frame.waitForSelector("#UTECMADA02_iframe");
-      const frameInner = homtaxPage
+      const frameInner = await homtaxPage
       .frames()
       .find((frame) => frame.name() === "UTECMADA02_iframe");
       
-      const frameInner2 = frameInner
+      await frameInner.waitForSelector("#simple_iframeView");
+      const frameInner2 = await frameInner
       .childFrames()
       .find((childFrame) => childFrame.name() === "simple_iframeView");
   
       await frameInner2.waitForSelector(
         "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li:nth-child(1) > div.ul-td > input[type=text]"
       );
+
+      // 유저의 본인인증 정보 입력
+      const userName = await frameInner2.$(
+        "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li:nth-child(1) > div.ul-td > input[type=text]"
+      );
+      await userName.type(userData.name);
+      const userBirth = await frameInner2.$(
+        "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li:nth-child(2) > div.ul-td > input"
+      );
+      await userBirth.type(userData.birth);
+      const userPhone = await frameInner2.$(
+        "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li.none-telecom > div.ul-td > input"
+      );
+      await userPhone.type(userData.phone);
   
       //간편인증 인증서 선택
       let counts = await frameInner2.$eval(
@@ -120,31 +135,6 @@ app.post('/hometax', async (req, res) => {
           }
       }
   
-      //유저의 본인인증 정보 입력
-      await frameInner2.waitForSelector(
-        "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li:nth-child(1) > div.ul-td > input[type=text]"
-      );
-      await frameInner2.focus(
-        "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li:nth-child(1) > div.ul-td > input[type=text]"
-      );
-      await homtaxPage.keyboard.type(userData.name);
-  
-      await frameInner2.waitForSelector(
-        "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li:nth-child(2) > div.ul-td > input"
-      );
-      await frameInner2.focus(
-        "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li:nth-child(2) > div.ul-td > input"
-      );
-      await homtaxPage.keyboard.type(userData.birth);
-  
-      await frameInner2.waitForSelector(
-        "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li.none-telecom > div.ul-td > input"
-      );
-      await frameInner2.focus(
-        "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li.none-telecom > div.ul-td > input"
-      );
-      await homtaxPage.keyboard.type(userData.phone);
-  
       // 약관 동의
       await frameInner2.waitForSelector(
         "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > dl.agree > dt > label",
@@ -173,10 +163,11 @@ app.post("/homtax_registration", async (req, res) => {
     const homtaxPage = pages[1];
 
     try {
-      const frameInner2 = homtaxPage
+      const frameInner2 = await homtaxPage
       .frames()
       .find((frame) => frame.name() === "simple_iframeView");
-
+      
+      await frameInner2.waitForSelector("#oacxEmbededContents > div.standby > div > button.basic.sky.w70");
       await frameInner2.$eval(
         "#oacxEmbededContents > div.standby > div > button.basic.sky.w70",
         (elem) => elem.click()
@@ -184,10 +175,9 @@ app.post("/homtax_registration", async (req, res) => {
     } catch (error) {
       console.error("인증이 완료되지 않았습니다.", error);
     }
-
-    await homtaxPage.waitForTimeout(3000);
   
     //사업자 등록 간편 신청-통신판매업 이동
+    await homtaxPage.waitForSelector("#hdTextbox546");
     await homtaxPage.hover("#hdTextbox546");
     await homtaxPage.click("#menuAtag_4306010000");
     await homtaxPage.$eval("#menuAtag_4306010300", (elem) => elem.click());
@@ -195,7 +185,8 @@ app.post("/homtax_registration", async (req, res) => {
     await homtaxPage.waitForTimeout(8000);
   
     //프레임
-    const frame = homtaxPage
+    await homtaxPage.waitForSelector("#txppIframe");
+    const frame = await homtaxPage
       .frames()
       .find((frame) => frame.name() === "txppIframe");
   
@@ -205,6 +196,7 @@ app.post("/homtax_registration", async (req, res) => {
     const phoneSecond = userData.userPhone.substring(4);
 
     //휴대전화 앞자리 010 선택
+    await frame.waitForSelector("#mpno1");
     await frame.click("#mpno1");
     await homtaxPage.waitForTimeout(300);
     await homtaxPage.keyboard.press("ArrowDown");
@@ -287,7 +279,7 @@ app.post("/homtax_registration", async (req, res) => {
           // 남은 부분은 상세 주소 (101동 1401호)
           const addressTail = addressParts.join("");
 
-          const frameInner = homtaxPage
+          const frameInner = await homtaxPage
           .frames()
           .find((frame) => frame.name() === "UTECMAAA02_iframe");
 
@@ -353,7 +345,7 @@ app.post("/homtax_registration", async (req, res) => {
         await homtaxPage.waitForTimeout(1000);
         
         try {
-          const lentBuildingInfo_frame = homtaxPage
+          const lentBuildingInfo_frame = await homtaxPage
           .frames()
           .find((frame) => frame.name() === "UTEABAAA66_iframe");
 
@@ -392,7 +384,7 @@ app.post("/homtax_registration", async (req, res) => {
             const addressBody = addressParts.shift();
             const addressTail = addressParts.join("");
 
-            const frameInner = homtaxPage
+            const frameInner = await homtaxPage
             .frames()
             .find((frame) => frame.name() === "UTECMAAA02_iframe");
 
@@ -466,7 +458,7 @@ app.post("/homtax_registration", async (req, res) => {
       await homtaxPage.waitForTimeout(1000);
     
       //UTEABAAA85_iframe
-      const category_frame = homtaxPage
+      const category_frame = await homtaxPage
         .frames()
         .find((frame) => frame.name() === "UTEABAAA85_iframe");
 
@@ -490,7 +482,7 @@ app.post("/homtax_registration", async (req, res) => {
         });
         await homtaxPage.waitForTimeout(1000);
         //하위 프레임은 childFrames()로 선택한다
-        const snsCategory_frame = frame
+        const snsCategory_frame = await frame
           .childFrames()
           .find((childFrame) => childFrame.name() === "UTERNAAZ76_iframe");
         await snsCategory_frame.waitForSelector("#krStndIndsClCdDVOListDes_cell_0_11 > button");
@@ -566,6 +558,26 @@ app.post("/homtax_registration", async (req, res) => {
     await frame.evaluate(() => {
       document.querySelector("#triggerApln").click();
     });
+
+    //서류 업로드
+    try {
+      const frameHandle = await page.$("iframe[id='dext5uploader_frame_comp0']");
+      const frame = await frameHandle.contentFrame();
+
+      const filePath =
+        "C:/bc/user_image.jpg"
+      const input = await frame.$('input[type="file"]');
+      await input.uploadFile(filePath);
+
+      //서류 업로드
+      await page.click("#btn_end");
+      } catch (error) {
+        console.log("서류 업로드 에러", error);
+        res.send(500);
+        return;
+      }
+    res.send("ok");
+ 
   
     // //제출서류선택
     // await homtaxPage.waitForTimeout(4000);
