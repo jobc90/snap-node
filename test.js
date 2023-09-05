@@ -64,7 +64,7 @@ app.post('/hometax', async (req, res) => {
             await frame.waitForSelector(anchor23Selector);
             await frame.click(anchor23Selector);
           } else {
-            console.log("시도 횟수:", counts);
+            console.log("간편인증 클릭 시도 횟수:", counts);
             await clickAnchors(frame, anchor14Selector, anchor23Selector, counts+1);
           }
         }
@@ -77,50 +77,94 @@ app.post('/hometax', async (req, res) => {
         return;
       }
 
-    // 간편인증 진행
-      await frame.waitForSelector("#UTECMADA02_iframe");
+
+      try {
+        async function findFrameInner(frame, counts) {
+          await frame.waitForSelector("#UTECMADA02_iframe");
+        
+          const isFrameInner = await frame.evaluate((selector) => !!document.querySelector(selector), '#UTECMADA02_iframe');
+          console.log(isFrameInner);
+
+          if (isFrameInner) {
+            console.log("프레임1 찾음:", counts)
+          } else {
+            console.log("프레임1 찾기:", counts);
+            await findFrameInner(frame, counts+1);
+          }
+        }
+
+        await findFrameInner(frame, 1);
+
+      } catch (error) {
+        console.error("간편인증 진행 중 에러발생함.", error);
+        res.sendStatus(500);
+        return;
+      }
+
       const frameInner = await homtaxPage
       .frames()
       .find((frame) => frame.name() === "UTECMADA02_iframe");
-      
-      await frameInner.waitForSelector("#simple_iframeView");
+
+      try {
+        async function findFrameInner2(frameInner, counts) {
+          await frameInner.waitForSelector("#simple_iframeView");
+        
+          const isFrameInner2 = await frameInner.evaluate((selector) => !!document.querySelector(selector), '#simple_iframeView');
+          console.log(isFrameInner2);
+          if (isFrameInner2) {
+            console.log("프레임2 찾음:", counts)
+          } else {
+            console.log("프레임2 찾기:", counts);
+            await findFrameInner2(frameInner, counts+1);
+          }
+        }
+
+        await findFrameInner2(frameInner, 1);
+
+      } catch (error) {
+        console.error("간편인증 진행 중 에러발생함.", error);
+        res.sendStatus(500);
+        return;
+      }
+
       const frameInner2 = await frameInner
       .childFrames()
       .find((childFrame) => childFrame.name() === "simple_iframeView");
-  
-      await frameInner2.waitForSelector(
-        "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li:nth-child(1) > div.ul-td > input[type=text]"
-      );
 
-      // 유저의 본인인증 정보 입력
-      const userName = await frameInner2.$(
-        "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li:nth-child(1) > div.ul-td > input[type=text]"
-      );
-      await userName.type(userData.name);
-      const userBirth = await frameInner2.$(
-        "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li:nth-child(2) > div.ul-td > input"
-      );
-      await userBirth.type(userData.birth);
-      const userPhone = await frameInner2.$(
-        "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li.none-telecom > div.ul-td > input"
-      );
-      await userPhone.type(userData.phone);
-  
-      //간편인증 인증서 선택
-      let counts = await frameInner2.$eval(
-          "#oacxEmbededContents > div:nth-child(2) > div > div.selectLayout > div > div > ul",
-          (element) => {
-          return element.childElementCount;
-          }
-      );
-  
-      for (let index = 0; index < counts; index++) {
+    // 간편인증 진행
+
+      try {
+        await frameInner2.waitForSelector("#oacxEmbededContents > div:nth-child(2) > div > div.selectLayout > div > div > ul > li:nth-child(1) > label > a");
+        
+        // 유저의 본인인증 정보 입력
+        const userName = await frameInner2.$(
+          "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li:nth-child(1) > div.ul-td > input[type=text]"
+        );
+        await userName.type(userData.name);
+        const userBirth = await frameInner2.$(
+          "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li:nth-child(2) > div.ul-td > input"
+        );
+        await userBirth.type(userData.birth);
+        const userPhone = await frameInner2.$(
+          "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > div.tab-content > div:nth-child(1) > ul > li.none-telecom > div.ul-td > input"
+        );
+        await userPhone.type(userData.phone);
+
+        //간편인증 인증서 선택
+        let counts = await frameInner2.$eval(
+            "#oacxEmbededContents > div:nth-child(2) > div > div.selectLayout > div > div > ul",
+            (element) => {
+            return element.childElementCount;
+            }
+        );
+    
+        for (let index = 0; index < counts; index++) {
           let certification = await frameInner2.$eval(
           "#oacxEmbededContents > div:nth-child(2) > div > div.selectLayout > div > div > ul > li:nth-child(" +
               (index + 1) +
               ") > label > span > p",
           (element) => {
-              return element.innerText;
+            return element.innerText;
           }
           );
 
@@ -133,19 +177,26 @@ app.post('/hometax', async (req, res) => {
           );
           break;
           }
+        }
+    
+        // 약관 동의
+        await frameInner2.waitForSelector(
+          "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > dl.agree > dt > label",
+        );
+        await frameInner2.$eval(
+          "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > dl.agree > dt > label",
+          (elem) => elem.click()
+        );
+    
+        //인증요청
+        // await frameInner2.$eval("#oacx-request-btn-pc", (elem) => elem.click());
+        
+      } catch (error) {
+        console.error("간편인증 진행 중 에러발생함.", error);
+        res.sendStatus(500);
+        return;
       }
-  
-      // 약관 동의
-      await frameInner2.waitForSelector(
-        "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > dl.agree > dt > label",
-      );
-      await frameInner2.$eval(
-        "#oacxEmbededContents > div:nth-child(2) > div > div.formLayout > section > form > dl.agree > dt > label",
-        (elem) => elem.click()
-      );
-  
-      //인증요청
-      await frameInner2.$eval("#oacx-request-btn-pc", (elem) => elem.click());
+
     } catch (error) {
       console.error("인증요청에서 에러발생함.", error);
       res.send(500);
@@ -562,6 +613,7 @@ app.post("/homtax_registration", async (req, res) => {
     //서류 업로드
     try {
       const frameHandle = await page.$("iframe[id='dext5uploader_frame_comp0']");
+      
       const frame = await frameHandle.contentFrame();
 
       const filePath =
