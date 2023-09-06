@@ -19,6 +19,15 @@ function generateSecretKey() {
 
 let browserArray = [];
 
+// /hometax 더미데이터
+// {
+//   "provider":"네이버",
+//   "name":"조병철",
+//   "birth":"19900109",
+//   "phone":"73673632"
+// }
+
+
 // 인증요청 API
 app.post('/hometax', async (req, res) => {
   const userData = req.body;
@@ -203,6 +212,29 @@ app.post('/hometax', async (req, res) => {
     res.send("인증요청 완료");
 });
 
+// /homtax_registration 더미데이터
+// {
+//   "key":"6f9ce03684b1acc91e7cdb2759cf5766e7ee1d82bdb1395e1b551f74bc8d8e09",
+//   "userPhone":"73673632",
+//   "companyName":"상호명입력테스트",
+//   "openingDate":"20210304",
+//   "useSameAddress":false,
+//   "autoChangeAddress":true,
+//   "isBuildingOwner":false,
+//   "lentBuildingArea":"74",
+//   "lentBuildingBusinessNumber":"3951401791",
+//   "lentBuildingContractDate":"20210101",
+//   "lentBuildingStartDate":"20210110",
+//   "lentBuildingFinishDate":"20250110",
+//   "roadAddress":"조방로26번길 7 101동 1401호",
+//   "businessCategory":"SNS 마켓",
+//   "snsMarketCategory":"전자상거래 소매업",
+//   "taxpayerType":"간이",
+//   "simpleTaxReq":false
+
+// }
+
+ // 사업자 등록 API
 app.post("/homtax_registration", async (req, res) => {
 
     const userData = req.body;
