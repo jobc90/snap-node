@@ -77,13 +77,11 @@ app.post('/hometax', async (req, res) => {
         return;
       }
 
-
       try {
         async function findFrameInner(frame, counts) {
           await frame.waitForSelector("#UTECMADA02_iframe");
         
           const isFrameInner = await frame.evaluate((selector) => !!document.querySelector(selector), '#UTECMADA02_iframe');
-          console.log(isFrameInner);
 
           if (isFrameInner) {
             console.log("프레임1 찾음:", counts)
@@ -94,7 +92,7 @@ app.post('/hometax', async (req, res) => {
         }
 
         await findFrameInner(frame, 1);
-
+        
       } catch (error) {
         console.error("간편인증 진행 중 에러발생함.", error);
         res.sendStatus(500);
@@ -110,7 +108,7 @@ app.post('/hometax', async (req, res) => {
           await frameInner.waitForSelector("#simple_iframeView");
         
           const isFrameInner2 = await frameInner.evaluate((selector) => !!document.querySelector(selector), '#simple_iframeView');
-          console.log(isFrameInner2);
+
           if (isFrameInner2) {
             console.log("프레임2 찾음:", counts)
           } else {
@@ -118,15 +116,15 @@ app.post('/hometax', async (req, res) => {
             await findFrameInner2(frameInner, counts+1);
           }
         }
-
+        
         await findFrameInner2(frameInner, 1);
-
+        
       } catch (error) {
         console.error("간편인증 진행 중 에러발생함.", error);
         res.sendStatus(500);
         return;
       }
-
+      
       const frameInner2 = await frameInner
       .childFrames()
       .find((childFrame) => childFrame.name() === "simple_iframeView");
@@ -188,8 +186,8 @@ app.post('/hometax', async (req, res) => {
           (elem) => elem.click()
         );
     
-        //인증요청
-        // await frameInner2.$eval("#oacx-request-btn-pc", (elem) => elem.click());
+        // 인증요청
+        await frameInner2.$eval("#oacx-request-btn-pc", (elem) => elem.click());
         
       } catch (error) {
         console.error("간편인증 진행 중 에러발생함.", error);
@@ -212,7 +210,7 @@ app.post("/homtax_registration", async (req, res) => {
     const browser = foundBrowser.browser;
     const pages = await browser.pages();
     const homtaxPage = pages[1];
-
+    
     try {
       const frameInner2 = await homtaxPage
       .frames()
@@ -226,6 +224,8 @@ app.post("/homtax_registration", async (req, res) => {
     } catch (error) {
       console.error("인증이 완료되지 않았습니다.", error);
     }
+
+    await homtaxPage.waitForNetworkIdle();
   
     //사업자 등록 간편 신청-통신판매업 이동
     await homtaxPage.waitForSelector("#hdTextbox546");
@@ -235,7 +235,7 @@ app.post("/homtax_registration", async (req, res) => {
   
     await homtaxPage.waitForTimeout(8000);
   
-    //프레임
+    // 프레임
     await homtaxPage.waitForSelector("#txppIframe");
     const frame = await homtaxPage
       .frames()
@@ -611,24 +611,23 @@ app.post("/homtax_registration", async (req, res) => {
     });
 
     //서류 업로드
-    try {
-      const frameHandle = await page.$("iframe[id='dext5uploader_frame_comp0']");
+    // try {
+    //   const frameHandle = await page.$("iframe[id='dext5uploader_frame_comp0']");
       
-      const frame = await frameHandle.contentFrame();
+    //   const fileFrame = await frameHandle.contentFrame();
 
-      const filePath =
-        "C:/bc/user_image.jpg"
-      const input = await frame.$('input[type="file"]');
-      await input.uploadFile(filePath);
+    //   const filePath =
+    //     "C:/bc/user_image.jpg"
+    //   const input = await fileFrame.$('input[type="file"]');
+    //   await input.uploadFile(filePath);
 
-      //서류 업로드
-      await page.click("#btn_end");
-      } catch (error) {
-        console.log("서류 업로드 에러", error);
-        res.send(500);
-        return;
-      }
-    res.send("ok");
+    //   //서류 업로드
+    //   await page.click("#grdSheetSet_cell_5_2 > button");
+    //   } catch (error) {
+    //     console.log("서류 업로드 에러", error);
+    //     res.send(500);
+    //     return;
+    //   }
  
   
     // //제출서류선택
